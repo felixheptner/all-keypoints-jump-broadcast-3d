@@ -84,8 +84,16 @@ def thickness_percentage_differences(predictions_thick, annotations_thick, fixed
 
         p_round = p_round[anno[:, 2] != 0]
 
-        bodypart_ind = bodypart_map[a_round[:, 1], a_round[:, 0]]
-        # set all invisible keypoints to bodypart id -1
+        if not isinstance(bodypart_map, list):
+            bodypart_ind = bodypart_map[a_round[:, 1], a_round[:, 0]]
+        else:
+            stacked_map = np.stack(bodypart_map, axis=0)
+            pixels_at_keypoint = stacked_map[:, a_round[:, 1], a_round[:, 0]]
+            # The original code Finds the body part in which a keypoint lies. As in 3d segmentation a keypoint can lie
+            # in overlapping body parts we just use the first one. TODO Ja?
+            bodypart_ind = np.argmax(pixels_at_keypoint != 0, axis=0) + 1
+
+        # set all invisible keypoints to bodypart id -1  TODO Macht das überhaupt noch Sinn??
         bodypart_ind[anno[:, 2] == 0] = -1
 
         for i in range(predictions_thick.shape[1]):
@@ -203,8 +211,14 @@ def thickness_keypoint(bodypart_order: BodypartOrder, bodypart_map, bodypart_id,
     :return: calculated thickness difference according to the points, calculated thickness difference according to the thickness vector (if it is not None)
     information for visualization for the annotation and the prediction thickness calculation (projection point and if computable, intersection points and thickness)
     """
-    bodypart_mask = np.zeros_like(bodypart_map)
-    bodypart_mask[np.where(bodypart_map == bodypart_id)] = 1
+
+    if not isinstance(bodypart_map, list):
+        bodypart_mask = np.zeros_like(bodypart_map)
+        bodypart_mask[np.where(bodypart_map == bodypart_id)] = 1
+    else:
+        bodypart_mask = np.zeros_like(bodypart_map[0])
+        bodypart_mask[np.where(bodypart_map[bodypart_id - 1] != 0)] = 1
+
     bodypart = bodypart_order.get_bodypart_to_keypoint_dict()[bodypart_id]
 
     kp1, kp2 = bodypart[0], bodypart[1]

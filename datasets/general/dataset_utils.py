@@ -41,7 +41,9 @@ def get_dataset_from_config(cfg, subset, params):
             arbitrary_keypoint_mode=arbitrary_keypoints_mode,
             test_points=(2, 25),
             num_points_to_generate=cfg.GENERATE_KEYPOINTS,
-            num_annotations_to_use=num_annotations_to_use
+            num_annotations_to_use=num_annotations_to_use,
+            segmentation_type=cfg.SEGMENTATION_TYPE,
+            val_segmentation_type=cfg.VAL_SEGMENTATION_TYPE
             )
     return dataset
 

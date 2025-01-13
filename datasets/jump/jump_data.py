@@ -4,6 +4,8 @@ Created on 30.03.23
 
 """
 import os.path
+import glob
+import imagesize
 from pathlib import Path
 from typing import Type
 
@@ -155,7 +157,7 @@ class JumpArbitraryKeypoints(ArbitraryKeypointsDataWrapper, Jump):
     def __init__(
             self, subset, params, bodypart_order: Type[BodypartOrder], representation_type: str,
             arbitrary_keypoint_mode=ArbitraryKeypointsDataWrapper.GENERATE_POINTS, test_points=None, num_points_to_generate=None,
-            num_annotations_to_use=None, verbose=True
+            num_annotations_to_use=None, segmentation_type="3d", val_segmentation_type="3d", verbose=True
             ):
         """
         Jump dataset for arbitrary keypoint detection
@@ -172,6 +174,9 @@ class JumpArbitraryKeypoints(ArbitraryKeypointsDataWrapper, Jump):
         :param num_points_to_generate number of points to generate in GENERATE_POINTS mode. Can be a number or a tuple of
         numbers, indicating the minimum and maximum number of points to generate
         :param num_annotations_to_use: if set, a specified number of annotations is used and not all of them
+        :param segmentation_type: Determines weather 2d or 3d based masks are used for training. Validation is always
+        performed on classic 2d masks.
+
         """
 
         repr = "_norm_pose" if representation_type == ArbitraryKeypointsDataWrapper.NORM_POSE else ""
@@ -206,26 +211,37 @@ class JumpArbitraryKeypoints(ArbitraryKeypointsDataWrapper, Jump):
         for image_name, bbox in bboxes.items():
             image_name = image_name.replace(".jpg", "")
             if image_name in jump_base_data.image_ids:
-                mask_path = os.path.join(seg_im_path, image_name + ".png")
+                jump_base_data.bboxes[image_name] = bbox
+                if subset == "train" and segmentation_type == "2d" or subset != "train" and val_segmentation_type == "2d":            # Check for subset here if 3d validation should be disabled
+                    mask_path = os.path.join(seg_im_path, image_name + ".png")
+                else:
+                    mask_path = os.path.join(seg_im_path, image_name)
                 if not os.path.exists(mask_path):
                     continue
-                jump_base_data.bboxes[image_name] = bbox
                 bodypart_masks[image_name] = mask_path
+
         # For some images, we do not have segmentation masks, so we remove them from the dataset
         jump_base_data.image_ids = sorted(list(bodypart_masks.keys()))
+
         if verbose:
             print("Number of images with segmentation masks (that are used in subset {}): {}".format(subset,
                                                                                                      len(jump_base_data.image_ids)))
 
         super().__init__(jump_base_data, bodypart_masks, bodypart_order, representation_type, endpoints, anchors,
                          full_image_masks=False, arbitrary_keypoint_mode=arbitrary_keypoint_mode,
-                         test_points=test_points, num_points_to_generate=num_points_to_generate)
+                         test_points=test_points, num_points_to_generate=num_points_to_generate,
+                         segmentation_type=segmentation_type, val_segmentation_type=val_segmentation_type)
 
     def setup_norm_pose(self):
         return setup_jump_norm_pose(self.bodypart_order)
 
     def load_bodypart_mask(self, image_id, size=None, scale_mask=0.1):
-        return super(JumpArbitraryKeypoints, self).load_bodypart_mask(image_id, size, scale_mask).astype(int)
+        mask = super(JumpArbitraryKeypoints, self).load_bodypart_mask(image_id, size, scale_mask)
+        if not isinstance(mask, list):
+            mask = mask.astype(int)
+        else:
+            mask = [element.astype(int) for element in mask]
+        return mask
 
 
 def setup_jump_norm_pose(bodypart_order):

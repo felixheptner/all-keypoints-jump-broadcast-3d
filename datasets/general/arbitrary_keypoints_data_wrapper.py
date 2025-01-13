@@ -5,6 +5,7 @@ Created on 24.03.23
 """
 import copy
 import os.path
+import glob
 import pickle
 from typing import Type
 
@@ -108,8 +109,8 @@ class ArbitraryKeypointsDataWrapper(DataWrapper):
     def __init__(
             self, base_data_wrapper: DataWrapper, bodypart_masks, bodypart_order: Type[BodypartOrder], representation_type: str,
             endpoints: str, anchors: str, full_image_masks=True,
-            arbitrary_keypoint_mode=GENERATE_POINTS, test_points=None, num_points_to_generate=None
-            ):
+            arbitrary_keypoint_mode=GENERATE_POINTS, test_points=None, num_points_to_generate=None, segmentation_type: str="3d",
+            val_segmentation_type: str="3d"):
         """
         :param bodypart_masks: dictionary mapping image ids to file paths of the bodypart masks
         :param bodypart_order: class inheriting from BodypartOrder that defines the order of the bodyparts
@@ -136,6 +137,9 @@ class ArbitraryKeypointsDataWrapper(DataWrapper):
 
         self.representation_type = representation_type
         self.postfix = "seg"
+
+        self.segmentation_type = segmentation_type
+        self.val_segmentation_type=val_segmentation_type
 
         if representation_type == self.NORM_POSE:
             self.norm_pose_settings = self.setup_norm_pose()
@@ -226,17 +230,25 @@ class ArbitraryKeypointsDataWrapper(DataWrapper):
                     segmentation_masks = segmentation_masks.numpy()
             elif segmentation_masks.endswith(".png"):
                 segmentation_masks = cv2.imread(segmentation_masks, cv2.IMREAD_UNCHANGED)
+            else:
+                segmentation_mask_dict = {}
+                for mask_path in glob.glob(segmentation_masks + "*/*.png"):
+                    bodypart = os.path.basename(mask_path).split(".")[0]
+                    segmentation_mask_dict[bodypart] = (cv2.imread(mask_path, cv2.IMREAD_UNCHANGED))
+
+                names = self.bodypart_order.names()[1:self.bodypart_order.get_max_bodypart_num() + 1]
+                segmentation_masks = [segmentation_mask_dict[name] for name in names]
         else:
             if size is not None and (size[0] != segmentation_masks.shape[0] or size[1] != segmentation_masks.shape[1]):
                 segmentation_masks = cv2.resize(segmentation_masks, size, interpolation=cv2.INTER_NEAREST)
-        return segmentation_masks * scale_mask
+        return segmentation_masks * scale_mask if not isinstance(segmentation_masks, list) else segmentation_masks
 
     def check_bodypart_exists(self, bodypart, keypoints, masks, image_id):
         """
         Checks if a bodypart exists in the segmentation mask
         """
         if bodypart[-1] not in self.bodypart_order.get_adjacent_bodyparts():
-            mask_ind = np.where(masks == bodypart[2])
+            mask_ind = np.where(masks == bodypart[2]) if not isinstance(masks, list) else np.where(masks[bodypart[2] - 1] == 255)
             for i in range(2):
                 if isinstance(bodypart[i], int):
                     if keypoints[bodypart[i]][2] == 0:

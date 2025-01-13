@@ -22,7 +22,6 @@ from st_aggrid import AgGrid, GridOptionsBuilder
 
 from datasets.jump.jump_data import JumpArbitraryKeypoints
 
-
 def vis_lines(
         skeleton_image, keypoints, image_id, bodypart_keypoints, bodypart_index, bbox, segmentation_masks, x1, y1, circle_size,
         thickness
@@ -53,23 +52,43 @@ def vis_lines(
                 count += 1
 
 
-def create_vis_image(image_id, bbox, keypoints):
+def create_vis_image(image_id, bbox, keypoints, bodypart_index=None):
     seg_path = st.session_state.jump.bodypart_masks[image_id]
-    segmentation_masks = cv2.imread(seg_path, cv2.IMREAD_UNCHANGED) / 10
+    segmentation_masks = st.session_state.jump.load_bodypart_mask(image_id)
     image = st.session_state.jump.load_image(image_id)
     x1, y1, w, h = bbox
     image = image[y1:y1 + h, x1:x1 + w]
-    I_vis = image.copy() * 0.7
-    MaskBool = np.tile((segmentation_masks == 0)[:, :, np.newaxis], [1, 1, 3])
-    #  Replace the visualized mask image with I_vis.
-    Mask_vis = np.zeros((segmentation_masks.shape[0], segmentation_masks.shape[1], 3))
-    colors = JumpBodypartOrder.get_rgb_colors()
-    for i in range(15):
-        Mask_vis[segmentation_masks == i] = list(colors[i])
-    Mask_vis *= 255
-    Mask_vis[MaskBool] = I_vis[MaskBool]
-    I_vis = I_vis * 0.3 + Mask_vis * 0.7
-    I_vis = np.asarray(I_vis, dtype=int)
+
+    if st.session_state.segmentation_type == "3d":
+        I_vis = image.copy() * 1.0
+        I_vis = I_vis[:min(I_vis.shape[0], segmentation_masks[0].shape[0]),
+                :min(I_vis.shape[1], segmentation_masks[0].shape[1])]
+        compound_mask = np.max(np.stack(segmentation_masks), axis=0) / 255 * 0.3
+        segmentation_masks = segmentation_masks[bodypart_index - 1] / 255 * 0.7
+        segmentation_masks = segmentation_masks + compound_mask
+        segmentation_masks = segmentation_masks[:min(I_vis.shape[0], segmentation_masks.shape[0]),
+                :min(I_vis.shape[1], segmentation_masks.shape[1])]
+        segmentation_masks = np.stack([np.zeros_like(segmentation_masks), segmentation_masks, np.zeros_like(segmentation_masks)], axis=-1)
+        I_vis = 0.7 * segmentation_masks * 255 + 0.3 * I_vis
+        I_vis[segmentation_masks[:, :, 1] == 0] *= 3
+        I_vis = I_vis.astype(np.uint8)
+
+    else:
+        I_vis = image.copy() * 0.7
+        I_vis = I_vis[:min(I_vis.shape[0], segmentation_masks.shape[0]),
+                :min(I_vis.shape[1], segmentation_masks.shape[1])]
+        segmentation_masks = segmentation_masks[:min(I_vis.shape[0], segmentation_masks.shape[0]),
+                :min(I_vis.shape[1], segmentation_masks.shape[1])]
+        MaskBool = np.tile((segmentation_masks == 0)[:, :, np.newaxis], [1, 1, 3])
+        #  Replace the visualized mask image with I_vis.
+        Mask_vis = np.zeros((segmentation_masks.shape[0], segmentation_masks.shape[1], 3))
+        colors = JumpBodypartOrder.get_rgb_colors()
+        for i in range(15):
+            Mask_vis[segmentation_masks == i] = list(colors[i])
+        Mask_vis *= 255
+        Mask_vis[MaskBool] = I_vis[MaskBool]
+        I_vis = I_vis * 0.3 + Mask_vis * 0.7
+        I_vis = np.asarray(I_vis, dtype=int)
     image = I_vis
     skeleton_image = image.astype(np.uint8).copy()
     for i in range(keypoints.shape[0]):
@@ -304,11 +323,13 @@ if __name__ == "__main__":
                                       representation_type=representation_type,
                                       arbitrary_keypoint_mode=arbitrary_keypoint_mode,
                                       test_points=(2, 25),
-                                      num_points_to_generate=50)
+                                      num_points_to_generate=50,
+                                      segmentation_type=st.session_state.segmentation_type,
+                                      val_segmentation_type=st.session_state.segmentation_type)
         st.session_state.jump = jump
         st.session_state.jump.image_ids = sorted(st.session_state.jump.image_ids)
 
-
+    st.sidebar.radio("Segmentation Type", ["2d", "3d"], on_change=load_dataset, key="segmentation_type")
     st.sidebar.radio("Representation", ["Normalized Pose", "Keypoint Vector"], on_change=load_dataset, key="representation_type")
     st.sidebar.radio("Head Strategy", ["Angle", "Extension"], on_change=load_dataset, key="head_strategy",
                      disabled=st.session_state.representation_type == "Normalized Pose")
@@ -338,7 +359,7 @@ if __name__ == "__main__":
     bodypart_names = np.asarray(bodypart_order.names())[sorted(list(bodypart_order.get_bodypart_to_keypoint_dict().keys()))]
     bp_kp_dict = bodypart_order.get_bodypart_to_keypoint_dict()
 
-    bodypart_name = st.sidebar.radio("Bodypart", bodypart_names)
+    bodypart_name = st.sidebar.radio("Bodypart", bodypart_names, key="bodypart")
 
     bodypart_index = bodypart_order.names().index(bodypart_name)
 
@@ -360,7 +381,7 @@ if __name__ == "__main__":
         x1, y1, w, h = bbox_
         keypoints = st.session_state.jump.annotations[image_id]
         skeleton_image, segmentation_masks, used_bodypart_exists, line_on_mask_exists = create_vis_image(image_id, bbox_,
-                                                                                                         keypoints)
+                                                                                                         keypoints, bodypart_index)
 
         x1_, y1_, x2_, y2_ = bbox_[0], bbox_[1], bbox_[0] + bbox_[2], bbox_[1] + bbox_[3]
         bbox = x1_, y1_, x2_, y2_

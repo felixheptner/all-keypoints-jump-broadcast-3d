@@ -22,7 +22,7 @@ class YTJumpSegmentationTransformerConfig(TransformerConfig):
         self.ANNOTATIONS_DIR = YTJumpLoc.annotation_dir
 
         self.NUM_VAL_IMAGES = None
-        self.VAL_STEPS = 5000
+        self.VAL_STEPS = 7500
         # Define if a metric score during validation is better if its higher or lower
         # PCK at 0.05, 0.1 and 0.2 for standard points and all points and MTE and PCT
         self.METRICS_HIGH_IS_BETTER = [True, True, True] * 2 + [False, True]
@@ -47,6 +47,9 @@ class YTJumpSegmentationTransformerConfig(TransformerConfig):
             self.BODYPART_ORDER = JumpHeadAngleBodypartOrder
         else:
             self.BODYPART_ORDER = JumpHeadEndpointBodypartOrder
+
+        self.SEGMENTATION_TYPE = "3d"
+        self.VAL_SEGMENTATION_TYPE = "3d"
 
         self.check_config()
 

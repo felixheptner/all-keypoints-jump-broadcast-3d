@@ -8,7 +8,7 @@ import numpy as np
 from scipy.spatial import distance_matrix
 
 from datasets.general.keypoint_generator import get_intermediate_point, angle_between_points_oriented, get_correct_border_point, angle_between_points, get_intersection_point_of_vector_defined_lines
-
+import datasets.jump.jump_bodypart_order
 
 def get_endpoint(keypoints, bodypart, mask, bbox):
     """
@@ -17,16 +17,20 @@ def get_endpoint(keypoints, bodypart, mask, bbox):
     """
 
     x1, y1, x2, y2 = bbox
-    mask_ = np.zeros_like(mask)
-    ys, xs = np.where(mask == bodypart[2])
+    if not isinstance(mask, list):
+        mask_ = np.zeros_like(mask)
+        ys, xs = np.where(mask == bodypart[2])
+    else:
+        mask_ = np.zeros_like(mask[0])
+        ys, xs = np.where(mask[bodypart[2] - 1] == 255)
     if len(xs) == 0 or len(ys) == 0:
         return None
     mask_[ys, xs] = 1
 
     x1_ = max(0, np.min(xs) - 2)
-    x2_ = min(np.max(xs) + 2, mask.shape[1])
+    x2_ = min(np.max(xs) + 2, mask_.shape[1])
     y1_ = max(0, np.min(ys) - 2)
-    y2_ = min(np.max(ys) + 2, mask.shape[0])
+    y2_ = min(np.max(ys) + 2, mask_.shape[0])
     mask = mask_[y1_:y2_, x1_:x2_]
     x2 = x1 + x2_
     y2 = y1 + y2_
@@ -162,6 +166,10 @@ def get_mask_line_intersection_points(x_line, y_line, mask, offset_x, offset_y, 
     and last point of this sequence are returned.
     If the points are desired in a certain direction of a point, the point and direction can be specified, the direction is interpreted as a vector
     """
+    # TODO Do we indeed need the compound mask?
+    if len(mask.shape) == 3:
+        mask = np.max(np.stack(mask), axis=0)
+
     if len(x_line) == 0:
         return None, None
     x_mask = x_line - offset_x
@@ -278,17 +286,25 @@ def calculate_adjacent_kp(keypoints, upper_bodypart, lower_bodypart, masks, perc
 
     invalid_result = None, None, None, None
     x1, y1, x2, y2 = bbox
-    mask = np.zeros_like(masks)
-    ys1, xs1 = np.where(masks == upper_bodypart[2])
-    mask[ys1, xs1] = 1
-    ys2, xs2 = np.where(masks == lower_bodypart[2])
-    mask[ys2, xs2] = 1
+    if not isinstance(masks, list):
+        mask = np.zeros_like(masks)
+        ys1, xs1 = np.where(masks == upper_bodypart[2])
+        mask[ys1, xs1] = 1
+        ys2, xs2 = np.where(masks == lower_bodypart[2])
+        mask[ys2, xs2] = 1
+    else:
+        mask = np.zeros_like(masks[0])
+        ys1, xs1 = np.where(masks[upper_bodypart[2] - 1])
+        mask[ys1, xs1] = 1
+        ys2, xs2 = np.where(masks[lower_bodypart[2] - 1])
+        mask[ys2, xs2] = 1
+
 
     if crop_region:
         x1_ = max(0, min(np.min(xs1) - 2, np.min(xs2) - 2))
-        x2_ = min(max(np.max(xs2) + 2, np.max(xs1) + 2), masks.shape[1])
+        x2_ = min(max(np.max(xs2) + 2, np.max(xs1) + 2), mask.shape[1])
         y1_ = max(0, min(np.min(ys1) - 2, np.min(ys2) - 2))
-        y2_ = min(max(np.max(ys2) + 2, np.max(ys1) + 2), masks.shape[0])
+        y2_ = min(max(np.max(ys2) + 2, np.max(ys1) + 2), mask.shape[0])
         mask = mask[y1_:y2_, x1_:x2_]
         x2 = x1 + x2_
         y2 = y1 + y2_
@@ -389,14 +405,18 @@ def calculate_endpoint_angle_kp(keypoints, bodypart, masks, percentage_thickness
     :return:
     """
     x1, y1, x2, y2 = bbox
-    mask = np.zeros_like(masks)
-    ys, xs = np.where(masks == bodypart[2])
+    if not isinstance(masks, list):
+        mask = np.zeros_like(masks)
+        ys, xs = np.where(masks == bodypart[2])
+    else:
+        mask = np.zeros_like(masks[0])
+        ys, xs = np.where(masks[bodypart[2] - 1] == 255)
     mask[ys, xs] = 1
     if crop_region:
         x1_ = max(0, np.min(xs) - 2)
-        x2_ = min(np.max(xs) + 2, masks.shape[1])
+        x2_ = min(np.max(xs) + 2, mask.shape[1])
         y1_ = max(0, np.min(ys) - 2)
-        y2_ = min(np.max(ys) + 2, masks.shape[0])
+        y2_ = min(np.max(ys) + 2, mask.shape[0])
         mask = mask[y1_:y2_, x1_:x2_]
         x2 = x1 + x2_
         y2 = y1 + y2_
@@ -464,14 +484,18 @@ def calculate_kp(keypoints, bodypart, masks, percentage_thickness, percentage_pr
     """
 
     x1, y1, x2, y2 = bbox
-    mask = np.zeros_like(masks)
-    ys, xs = np.where(masks == bodypart[2])
+    if not isinstance(masks, list):
+        mask = np.zeros_like(masks)
+        ys, xs = np.where(masks == bodypart[2])
+    else:
+        mask = np.zeros_like(masks[0])
+        ys, xs = np.where(masks[bodypart[2] - 1] == 255)
     mask[ys, xs] = 1
     if crop_region:
         x1_ = max(0, np.min(xs) - 2)
-        x2_ = min(np.max(xs) + 2, masks.shape[1])
+        x2_ = min(np.max(xs) + 2, mask.shape[1])
         y1_ = max(0, np.min(ys) - 2)
-        y2_ = min(np.max(ys) + 2, masks.shape[0])
+        y2_ = min(np.max(ys) + 2, mask.shape[0])
         mask = mask[y1_:y2_, x1_:x2_]
         x2 = x1 + x2_
         y2 = y1 + y2_
@@ -587,17 +611,24 @@ def calculate_anchor_point(keypoints, bodypart_upper, bodypart_lower, masks, bbo
     """
     x1, y1 = bbox[:2]
 
-    mask = np.zeros_like(masks)
-    ys1, xs1 = np.where(masks == bodypart_upper[2])
-    mask[ys1, xs1] = 1
-    ys2, xs2 = np.where(masks == bodypart_lower[2])
-    mask[ys2, xs2] = 1
+    if not isinstance(masks, list):
+        mask = np.zeros_like(masks)
+        ys1, xs1 = np.where(masks == bodypart_upper[2])
+        mask[ys1, xs1] = 1
+        ys2, xs2 = np.where(masks == bodypart_lower[2])
+        mask[ys2, xs2] = 1
+    else:
+        mask = np.zeros_like(masks[0])
+        ys1, xs1 = np.where(masks[bodypart_upper[2] - 1])
+        mask[ys1, xs1] = 1
+        ys2, xs2 = np.where(masks[bodypart_lower[2] - 1])
+        mask[ys2, xs2] = 1
 
     if crop_region:
         x1_ = max(0, min(np.min(xs1) - 2, np.min(xs2) - 2))
-        x2_ = min(max(np.max(xs2) + 2, np.max(xs1) + 2), masks.shape[1])
+        x2_ = min(max(np.max(xs2) + 2, np.max(xs1) + 2), mask.shape[1])
         y1_ = max(0, min(np.min(ys1) - 2, np.min(ys2) - 2))
-        y2_ = min(max(np.max(ys2) + 2, np.max(ys1) + 2), masks.shape[0])
+        y2_ = min(max(np.max(ys2) + 2, np.max(ys1) + 2), mask.shape[0])
         mask = mask[y1_:y2_, x1_:x2_]
         x2 = x1 + x2_
         y2 = y1 + y2_
