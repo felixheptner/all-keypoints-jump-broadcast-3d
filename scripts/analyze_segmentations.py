@@ -54,6 +54,7 @@ if __name__ == "__main__":
                         help="Path to the jump broadcast dataset base directory")
     parser.add_argument("--smplx_path", "-s", required=True,
                         help="Path to SMPLX_NEUTRAL.npz")
+    parser.add_argument("--filter_masks", "-f", default=0)
     args = parser.parse_args()
 
     # Load jump broadcast keypoints
@@ -146,7 +147,7 @@ if __name__ == "__main__":
     l = zip(mean_distances, names)
     l = sorted(l)
     distances, names = zip(*l)
-    worst_100 = names[-360: -1]
+    worst = names[args.filter_masks if args.filter_masks > 0 else 100: -1]
     best_100 = names[:100]
     vis_base_path = os.path.join(base_result_path, "vis")
     img_base_path = os.path.join(base_result_path, "img")
@@ -155,7 +156,7 @@ if __name__ == "__main__":
     segmentation_path = os.path.join(base_result_path, "segmentations")
     unused_path = os.path.join(segmentation_path, "unused")
 
-    for name in worst_100:
+    for name in worst:
         shutil.copyfile(os.path.join(vis_base_path, name + ".png"), os.path.join(worst_target_path, name + ".png"))
         shutil.copyfile(os.path.join(img_base_path, name + ".jpg"), os.path.join(worst_target_path, name + ".jpg"))
         shutil.move(os.path.join(segmentation_path, name), os.path.join(unused_path, name))
