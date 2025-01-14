@@ -2,8 +2,10 @@ import csv
 import json
 import os
 import glob
+import argparse
 
 import numpy as np
+from matplotlib import pyplot as plt
 import torch
 import imagesize
 import tqdm
@@ -11,12 +13,11 @@ import cv2
 import trimesh
 import smplx
 
-from matplotlib import pyplot as plt
-
 from datasets.general.csv_annotation_utils import read_csv_annotations
 from datasets.general.csv_annotation_utils import read_csv_bboxes
 from datasets.jump.jump_joint_order import JumpJointOrder
 from datasets.jump.jump_bodypart_order import JumpBodypartOrder
+
 
 SMPLX2JUMP_JOINTS = np.array([15, 12, 17, 19, 21, 73, 16, 18, 20, 68, 2, 5, 8, 65, 63, 1, 4, 7, 62, 60])
 SMPLX2JUMP_BODYPARTS = [("spine", "spine1", "spine2", "hips"),
@@ -113,23 +114,28 @@ def find_bounding_box(arr: np.ndarray, margin: float):
 
 
 if __name__ == "__main__":
-    threshold = 500
+
+    parser = argparse.ArgumentParser(description="Generate 3d segmentation based on SMPLer-X results.")
+    parser.add_argument("--jump_basedir", "-j", required=True,
+                        help="Path to the jump broadcast dataset base directory")
+    parser.add_argument("--smplx_path", "-s", required=True,
+                        help="Path to SMPLX_NEUTRAL.npz")
+    args = parser.parse_args()
 
     # Load jump broadcast keypoints
     yt_jump_annotation_header = ["event", "frame_num", "athlete", "slowmotion"] + [joint_name + suffix for joint_name in
                                                                                    JumpJointOrder.names() for suffix in
                                                                                    ["_x", "_y", "_s"]]
-    offsets, keypoints = read_csv_annotations("/data/jump_broadcast/keypoints/train.csv", yt_jump_annotation_header, 20)
-    bboxes = read_csv_bboxes("/data/jump_broadcast/bboxes_segmentations.csv")
-    with open("/home/mmc-user/projektmodul/scripts/smplx_vert_segmentation.json") as f:
+    offsets, keypoints = read_csv_annotations(os.path.join(args.jump_basedir, "keypoints/train.csv"), yt_jump_annotation_header, 20)
+    bboxes = read_csv_bboxes(os.path.join(args.jump_basedir, "bboxes_segmentations.csv"))
+    with open("smplx_vert_segmentation.json") as f:
         segmentations = json.load(f)
 
-    smplx_model = smplx.SMPLX(
-        "/home/mmc-user/projektmodul/SMPLer-X/common/utils/human_model_files/smplx/SMPLX_NEUTRAL.npz").to("cuda")
+    smplx_model = smplx.SMPLX(args.smplx_path).to("cuda")
 
     img_names = [f"{offsets[i][0]}_({str(offsets[i][1]).zfill(5)})" for i in range(len(offsets))]
     jump_bodypart_indices = JumpJointOrder.bodypart_indices()
-    base_result_path = "/data/jump_broadcast/smplrx_results"
+    base_result_path = os.path.join(args.jump_basedir, "smplrx_results")
 
     print("Start generating segmentation masks!\n")
 
@@ -225,8 +231,6 @@ if __name__ == "__main__":
 
             stats["body_parts_checked"] += 1
             # generate all masks, worry about quality later
-            """if joint_distance > threshold:
-                continue"""
             for seg in smplx_segs:
                 seg_verts = vertices_2d[segmentations[seg]]
                 seg_faces = np.array([face for face in faces if face[0] in segmentations[seg] or

@@ -37,7 +37,7 @@ def read_person_indices_csv(filename: str) -> dict:
 
 if __name__ == "__main__":
     import shutil
-    import glob
+    import argparse
     import json
     import os
     import smplx
@@ -49,7 +49,12 @@ if __name__ == "__main__":
 
     import torch
 
-    threshold = 500
+    parser = argparse.ArgumentParser(description="Generate 3d segmentation based on SMPLer-X results.")
+    parser.add_argument("--jump_basedir", "-j", required=True,
+                        help="Path to the jump broadcast dataset base directory")
+    parser.add_argument("--smplx_path", "-s", required=True,
+                        help="Path to SMPLX_NEUTRAL.npz")
+    args = parser.parse_args()
 
     # Load jump broadcast keypoints
     yt_jump_annotation_header = ["event", "frame_num", "athlete", "slowmotion"] + [joint_name + suffix for
@@ -57,17 +62,16 @@ if __name__ == "__main__":
                                                                                    JumpJointOrder.names() for suffix
                                                                                    in
                                                                                    ["_x", "_y", "_s"]]
-    offsets, keypoints = read_csv_annotations("/data/jump_broadcast/keypoints/train.csv", yt_jump_annotation_header,
+    offsets, keypoints = read_csv_annotations(os.path.join(args.jump_basedir, "keypoints/train.csv"), yt_jump_annotation_header,
                                               20)
-    with open("/home/mmc-user/projektmodul/scripts/smplx_vert_segmentation.json") as f:
+    with open("smplx_vert_segmentation.json") as f:
         segmentations = json.load(f)
 
-    smplx_model = smplx.SMPLX(
-        "/home/mmc-user/projektmodul/SMPLer-X/common/utils/human_model_files/smplx/SMPLX_NEUTRAL.npz").to("cuda")
+    smplx_model = smplx.SMPLX(args.smplx_path).to("cuda")
 
     img_names = [f"{offsets[i][0]}_({str(offsets[i][1]).zfill(5)})" for i in range(len(offsets))]
     jump_bodypart_indices = JumpJointOrder.bodypart_indices()
-    base_result_path = "/data/jump_broadcast/smplrx_results"
+    base_result_path = os.path.join(args.jump_basedir, "smplrx_results")
     person_indices = read_person_indices_csv(os.path.join(base_result_path, "person_indices.csv"))
     images_skipped = 0
 
