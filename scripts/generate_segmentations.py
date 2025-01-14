@@ -150,6 +150,7 @@ if __name__ == "__main__":
     person_indices_writer = csv.writer(new_person_indices_file)
     person_indices_writer.writerow(["image_id", "person_index"])
 
+    os.makedirs(os.path.join(base_result_path, "vis"), exist_ok=True)
 
     for i, img_name in tqdm.tqdm(enumerate(img_names)):
         # load smplrx results

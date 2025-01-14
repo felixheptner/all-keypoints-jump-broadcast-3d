@@ -157,12 +157,17 @@ if __name__ == "__main__":
     unused_path = os.path.join(segmentation_path, "unused")
 
     for name in worst:
-        shutil.copyfile(os.path.join(vis_base_path, name + ".png"), os.path.join(worst_target_path, name + ".png"))
-        shutil.copyfile(os.path.join(img_base_path, name + ".jpg"), os.path.join(worst_target_path, name + ".jpg"))
+        try:
+            shutil.copyfile(os.path.join(vis_base_path, name + ".png"), os.path.join(worst_target_path, name + ".png"))
+            shutil.copyfile(os.path.join(img_base_path, name + ".jpg"), os.path.join(worst_target_path, name + ".jpg"))
+        except Exception as e:
+            print(f"No visualization found for image {name}.")
         if args.filter_masks > 0:
             shutil.move(os.path.join(segmentation_path, name), os.path.join(unused_path, name))
     for name in best_100:
-        shutil.copyfile(os.path.join(vis_base_path, name + ".png"), os.path.join(best_target_path, name + ".png"))
-        shutil.copyfile(os.path.join(img_base_path, name + ".jpg"), os.path.join(best_target_path, name + ".jpg"))
-
+        try:
+            shutil.copyfile(os.path.join(vis_base_path, name + ".png"), os.path.join(best_target_path, name + ".png"))
+            shutil.copyfile(os.path.join(img_base_path, name + ".jpg"), os.path.join(best_target_path, name + ".jpg"))
+        except Exception as e:
+            print(f"No visualization found for image {name}.")
     print(f"Images skipped: {images_skipped}")
