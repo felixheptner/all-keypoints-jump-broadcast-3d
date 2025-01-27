@@ -2,11 +2,10 @@
 
 ![Example](examples.png)
 
-This repository is the official implementation of 
+This repository continues the work on  
 [All Keypoints You Need: Detecting Arbitrary Keypoints on the Body of Triple, High, and Long Jump Athletes](https://arxiv.org/abs/2304.02939). 
+implementing the generation and usage of three dimensional segmentation masks.
 
-The paper is accepted for [CVSports'23](https://vap.aau.dk/cvsports/) at 
-[CVPR'23](https://cvpr2023.thecvf.com). 
 
 ## Dataset
 
@@ -23,17 +22,32 @@ To use this code, it is expected that the extracted frames are located in a subf
     │   ├── 0                   # Frames of video 0
     │   │   ├── 0_(01944).jpg
     │   │   └── ...
-    │   └── ...                  
+    │   └── ...
     ├── keypoints               # Keypoint annotations
     │   ├── train.csv           
     │   └── val.csv
     ├── Readme.md
     ├── segmentations           # segmentation masks
     │   ├── 0_(01944).jpg       
-    │   └── ...               
+    │   └── ...
+    ├── smplrx_results  # optional 3d segmentation masks
+    │   ├── img
+    │   ├── mesh
+    │   ├── meta
+    │   ├── segmentations
+    │   ├── smplx
+    │   ├── bboxes_segmentations_3d.csv
     ├── video_download_links.txt                  
     └── video_indices.txt
 
+## 3D Segmentation masks
+
+To generate the 3D Segmentation masks use SMPLer-X on multi-person-mode to generate 3D meshes for all annotated frames.
+The results are expected in .../jump-broadcast/smplrx_results.
+Now execute generate_segmentations.py with ```-j="<path to SMPLX_NEUTRAL.npz> -j=".../jump_broadcast"``` to generate the segmentation masks.
+To use the 3D segmentation masks make sure to set SEGMENTATION_TYPE and VAL_SEGMENTATION_TYPE to "3d" in all-keypoints-jump-broadcast/transformers/experimentation/jump/yt_jump_segmenatation_config.py.
+Alternatively to generating the masks yourself just download the complete dataset with images, meshes and masks from [here](https://megastore.rz.uni-augsburg.de/get/6Be5JvGVoj/).
+If you want to filter out a certain number of the worst segmentation masks, execute 
 
 ## Installation
 

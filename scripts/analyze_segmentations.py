@@ -147,7 +147,7 @@ if __name__ == "__main__":
     l = zip(mean_distances, names)
     l = sorted(l)
     distances, names = zip(*l)
-    worst = names[-1 * args.filter_masks if args.filter_masks > 0 else 100: -1]
+    worst = names[-1 * int(args.filter_masks) if int(args.filter_masks) > 0 else -100: -1]
     best_100 = names[:100]
     vis_base_path = os.path.join(base_result_path, "vis")
     img_base_path = os.path.join(base_result_path, "img")
@@ -162,7 +162,7 @@ if __name__ == "__main__":
             shutil.copyfile(os.path.join(img_base_path, name + ".jpg"), os.path.join(worst_target_path, name + ".jpg"))
         except Exception as e:
             print(f"No visualization found for image {name}.")
-        if args.filter_masks > 0:
+        if int(args.filter_masks) > 0:
             shutil.move(os.path.join(segmentation_path, name), os.path.join(unused_path, name))
     for name in best_100:
         try:
